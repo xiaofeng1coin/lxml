@@ -71,10 +71,7 @@ jobs:
         name: website
         path: doc/html
 
-  generate-wheels-matrix:
-    # Create a matrix of all architectures & versions to build.
-    # This enables the next step to run cibuildwheel in parallel.
-    # From https://iscinumpy.dev/post/cibuildwheel-2-10-0/#only-210
+    generate-wheels-matrix:
     name: Generate wheels matrix
     runs-on: ubuntu-latest
     outputs:
@@ -82,7 +79,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install cibuildwheel
-        # Nb. keep cibuildwheel version pin consistent with job below
         run: pipx install cibuildwheel==2.20.0
       - id: set-matrix
         run: |
@@ -93,13 +89,16 @@ jobs:
               && cibuildwheel --print-build-identifiers --platform macos \
               | jq -nRc '{"only": inputs, "os": "macos-latest"}' \
               && cibuildwheel --print-build-identifiers --platform windows \
-              | jq -nRc '{"only": inputs, "os": "windows-2019"}'
+              | jq -nRc '{"only": inputs, "os": "windows-2019"}' \
+              && cibuildwheel --print-build-identifiers --platform linux \
+              | jq -nRc '{"only": inputs, "os": "ubuntu-latest", "arch": "armv7l"}'
             } | jq -sc
           )
           echo "include=$MATRIX"
           echo "include=$MATRIX" >> $GITHUB_OUTPUT
 
-  build_wheels:
+
+    build_wheels:
     name: Build for ${{ matrix.only }}
     needs: generate-wheels-matrix
     runs-on: ${{ matrix.os }}
@@ -137,37 +136,13 @@ jobs:
         with:
           only: ${{ matrix.only }}
 
-      - name: Build old Linux wheels
-        if: contains(matrix.only, '-manylinux_') && startsWith(matrix.only, 'cp36-') && (contains(matrix.only, 'i686') || contains(matrix.only, 'x86_64'))
-        uses: pypa/cibuildwheel@v2.21.1
-        env:
-          CIBW_MANYLINUX_i686_IMAGE: manylinux1
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux1
-        with:
-          only: ${{ matrix.only }}
-
-      - name: Build faster Linux wheels
-        # also build wheels with the most recent manylinux images and gcc
-        if: runner.os == 'Linux' && !contains(matrix.only, 'i686')
-        uses: pypa/cibuildwheel@v2.21.1
-        env:
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_PYPY_X86_64_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_PYPY_AARCH64_IMAGE: manylinux_2_28
-          CIBW_MUSLLINUX_X86_64_IMAGE: musllinux_1_2
-          CIBW_MUSLLINUX_AARCH64_IMAGE: musllinux_1_2
-          CIBW_MUSLLINUX_PPC64LE_IMAGE: musllinux_1_2
-          CIBW_MUSLLINUX_S390X_IMAGE: musllinux_1_2
-        with:
-          only: ${{ matrix.only }}
+      # 这里可以添加其他的构建步骤，根据需要
 
       - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           path: ./wheelhouse/*.whl
           name: lxml-wheel-${{ matrix.only }}
+
 
   upload_release_assets:
     name: Upload Release Assets
