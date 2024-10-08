@@ -186,11 +186,20 @@ jobs:
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
-        if: runner.os == 'Linux' || runner.os == 'macOS'
+        if: runner.os == 'macOS'
         with:
           max-size: 100M
           create-symlink: true
           verbose: 1
+          key: ${{ runner.os }}-ccache${{ matrix.extra_hash }}-${{ matrix.python-version }}-${{ matrix.env.STATIC_DEPS }}
+
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          max-size: 100M
+          create-symlink: true
+          verbose: 1
+          platforms: all
           key: ${{ runner.os }}-ccache${{ matrix.extra_hash }}-${{ matrix.python-version }}-${{ matrix.env.STATIC_DEPS }}
 
       - name: Cache [libs]
